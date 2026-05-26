@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ALMACÉN · TU CASA PROYECTOS</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- SheetJS para exportar Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0b0f18;--surface:#131927;--surface2:#1a2235;--surface3:#212d42;
+  --border:#263044;--accent:#f0a500;--accent2:#e05c2a;
+  --ok:#27ae60;--warn:#e67e22;--danger:#e74c3c;--info:#2980b9;
+  --text:#e8edf5;--muted:#6b7a96;--radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+#app{max-width:500px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:2px solid var(--accent);padding:12px 14px 8px;position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:900;letter-spacing:1px;color:var(--accent)}
+.logo span{color:var(--muted);font-weight:400}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:4px;transition:background .3s}
+.sync-dot.online{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.sync-dot.syncing{background:var(--warn);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-label{font-size:10px;color:var(--muted)}
+
+.nav{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;border:none;background:var(--bg);color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;letter-spacing:.3px;white-space:nowrap}
+.nav-btn.active{background:var(--accent);color:#000}
+.nav-btn:active{transform:scale(.95)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding:10px 10px 80px}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* CARDS */
+.card{background:var(--surface);border-radius:var(--radius);padding:13px;margin-bottom:9px;border:1px solid var(--border)}
+.card-hdr{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.card-hdr .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}
+.stat{background:var(--surface2);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)}
+.stat-n{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;line-height:1}
+.stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:10px}
+.search-inp{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:9px 12px 9px 36px;color:var(--text);font-size:15px;font-family:'Barlow',sans-serif;outline:none}
+.search-inp:focus{border-color:var(--accent)}
+.search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.filters{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin-bottom:8px}
+.filters::-webkit-scrollbar{display:none}
+.fbtn{flex-shrink:0;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif}
+.fbtn.on{border-color:var(--accent);color:var(--accent);background:var(--surface2)}
+
+/* PRODUCT ITEM */
+.pi{background:var(--surface2);border-radius:9px;padding:10px 11px;margin-bottom:6px;border:1px solid var(--border);cursor:pointer;transition:transform .1s;display:flex;align-items:center;gap:9px}
+.pi:active{transform:scale(.98)}
+.pi.ok{border-left:3px solid var(--ok)}
+.pi.low{border-left:3px solid var(--warn)}
+.pi.out{border-left:3px solid var(--danger)}
+.pi-info{flex:1;min-width:0}
+.pi-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pi-meta{font-size:10px;color:var(--muted);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.pi-stock{text-align:right;flex-shrink:0}
+.pi-qty{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;line-height:1}
+.pi-und{font-size:9px;color:var(--muted)}
+
+/* BADGE */
+.badge{display:inline-flex;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+.b-ok{background:#0d2a1a;color:var(--ok)}
+.b-warn{background:#2a1a0a;color:var(--warn)}
+.b-danger{background:#2a0d0d;color:var(--danger)}
+.b-info{background:#0d1a2a;color:var(--info)}
+.b-purple{background:#1a0d2a;color:#9b59b6}
+
+/* FORM */
+.fg{margin-bottom:11px}
+.fl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block}
+.fi,.fs,.fta{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:14px;font-family:'Barlow',sans-serif;outline:none;appearance:none;-webkit-appearance:none}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--accent)}
+.fta{resize:none;min-height:60px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* CODE SEARCH INPUT */
+.code-search{position:relative}
+.code-search .fi{padding-right:80px;font-size:16px;font-weight:600}
+.code-search-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:var(--accent);color:#000;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif}
+.product-preview{background:var(--surface3);border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid var(--accent);display:none}
+.product-preview.show{display:block}
+.pp-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.pp-meta{font-size:11px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+
+/* BUTTON */
+.btn{padding:11px;border-radius:9px;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'Barlow',sans-serif;letter-spacing:.3px;transition:all .15s;text-align:center;display:block;width:100%}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#000}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border)}
+.btn-danger{background:#2a0d0d;color:var(--danger);border:1px solid var(--danger)}
+.btn-info{background:#0d1a2a;color:var(--info);border:1px solid var(--info)}
+.btn-sm{padding:6px 12px;font-size:12px;width:auto;display:inline-block}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:4px}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;backdrop-filter:blur(4px);align-items:flex-end}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;padding:18px;width:100%;max-height:92vh;overflow-y:auto;animation:slideUp .22s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:38px;height:3px;background:var(--border);border-radius:2px;margin:0 auto 14px}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:800;margin-bottom:3px}
+.modal-sub{font-size:11px;color:var(--muted);margin-bottom:14px}
+
+/* DETAIL GRID */
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.di{background:var(--surface2);border-radius:8px;padding:9px}
+.di-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.di-v{font-size:14px;font-weight:600}
+
+/* MOVE ITEM */
+.mi{background:var(--surface2);border-radius:9px;padding:10px;margin-bottom:6px;border:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.mi-ico{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.mi-info{flex:1;min-width:0}
+.mi-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi-detail{font-size:10px;color:var(--muted);margin-top:2px}
+.mi-qty{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;flex-shrink:0}
+
+/* REMISION */
+.rem-item{background:var(--surface2);border-radius:9px;padding:11px;margin-bottom:7px;border:1px solid var(--border)}
+.rem-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.rem-num{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent)}
+.rem-items{margin-top:6px;font-size:11px;color:var(--muted)}
+.rem-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)}
+.rem-row:last-child{border:none}
+
+/* TABS */
+.stabs{display:flex;gap:4px;margin-bottom:11px;overflow-x:auto;scrollbar-width:none}
+.stabs::-webkit-scrollbar{display:none}
+.stab{flex-shrink:0;flex:1;padding:7px 6px;border-radius:8px;font-size:11px;font-weight:600;border:none;background:var(--bg);color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;text-align:center;min-width:60px}
+.stab.on{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+
+/* ALERT */
+.alert{background:linear-gradient(135deg,#2a0d0d,#1a0808);border:1px solid var(--danger);border-radius:9px;padding:11px;margin-bottom:9px;display:flex;align-items:center;gap:9px}
+.alert .ico{font-size:20px}
+.alert-t{font-size:12px;font-weight:700;color:var(--danger)}
+.alert-s{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* EMPTY */
+.empty{text-align:center;padding:36px 16px;color:var(--muted)}
+.empty .ico{font-size:42px;margin-bottom:10px}
+.empty .msg{font-size:14px;font-weight:500}
+
+/* TOAST */
+.toast{position:fixed;top:76px;left:50%;transform:translateX(-50%) translateY(-16px);background:var(--surface);color:var(--ok);border:1px solid var(--ok);border-radius:20px;padding:7px 16px;font-size:12px;font-weight:600;opacity:0;transition:all .3s;z-index:300;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{border-color:var(--danger);color:var(--danger)}
+
+/* LOADER */
+.loader{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* CHIP */
+.chip{display:inline-flex;padding:2px 7px;border-radius:5px;font-size:10px;background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+
+/* REM LINE */
+.rem-line{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;background:var(--bg);border-radius:7px;padding:8px;margin-bottom:6px}
+.rem-line-x{background:none;border:none;color:var(--danger);font-size:16px;cursor:pointer;padding:0 4px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="header">
+    <div class="header-top">
+      <div class="logo">ALMACÉN <span>·</span> TCP</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span class="sync-dot" id="syncDot"></span>
+        <span class="sync-label" id="syncLabel">Conectando...</span>
+      </div>
+    </div>
+    <nav class="nav" id="mainNav">
+      <button class="nav-btn active" data-tab="dashboard">📊 Panel</button>
+      <button class="nav-btn" data-tab="inventario">📦 Inventario</button>
+      <button class="nav-btn" data-tab="movimientos">🔄 Movimientos</button>
+      <button class="nav-btn" data-tab="remisiones">📋 Remisiones</button>
+      <button class="nav-btn" data-tab="prestamos">🔧 Préstamos</button>
+      <button class="nav-btn" data-tab="compras">🛒 Compras</button>
+      <button class="nav-btn" data-tab="reportes">📥 Reportes</button>
+    </nav>
+  </header>
+  <main class="main" id="mainContent">
+    <div class="loader"><div class="spinner"></div>Iniciando aplicativo...</div>
+  </main>
+  <div class="toast" id="toast"></div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeOverlay(event)">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// FIREBASE CONFIG — Base de datos en tiempo real
+// ═══════════════════════════════════════════════════════════════
+const FB_CONFIG = {
+  apiKey: "AIzaSyDemo-ReplaceWithYourKey",
+  authDomain: "almacen-tcp.firebaseapp.com",
+  databaseURL: "https://almacen-tcp-default-rtdb.firebaseio.com",
+  projectId: "almacen-tcp",
+  storageBucket: "almacen-tcp.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:0000000000000000"
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CATÁLOGO BASE — 493 productos del Excel
+// (stock_min y existencia son valores iniciales; los ajustes
+//  se guardan en Firebase bajo /stock/{codigo})
+// ═══════════════════════════════════════════════════════════════
+const BASE_CATALOG = [{"codigo":1001,"producto":"TEE SANITARIA  4\"","categoria":"FONTANERIA","ubicacion":"ESTANTE 5","und":"UND","stock_min":2.0,"existencia":56.0,"precio":17007.0},{"codigo":1002,"producto":"SOLDADURA 115","categoria":"ELECTRICO","ubicacion":"EN OBRA","und":"UND","stock_min":0.0,"existencia":0.0,"precio":0},{"codigo":1003,"producto":"ACETATO POLICARBONATO CON RIBETE PARA CARETAS","categoria":"EPP","ubicacion":"ESTANTE 1","und":"UND","stock_min":5.0,"existencia":1.0,"precio":0},{"codigo":1004,"producto":"ACRONAL X GLN","categoria":"QUIMICO","ubicacion":"QUIMICO","und":"UND","stock_min":1.0,"existencia":0.0,"precio":0},{"codigo":1005,"producto":"ADAPTADOR HEMBRA PRESIÓN X 1\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":12.0,"precio":1936.0},{"codigo":1006,"producto":"ADAPTADOR HEMBRA PRESION X 1/2\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":5.0,"existencia":22.0,"precio":483.0},{"codigo":1007,"producto":"ADAPTADOR HEMBRA PRESION X 1-1/2\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":16.0,"precio":5354.0},{"codigo":1008,"producto":"ADAPTADOR HEMBRA PRESIÓN X 2-1/2\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":2.0,"precio":17729.0},{"codigo":1009,"producto":"ADAPTADOR HEMBRA PRESION X     2\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":3.0,"precio":9529.0},{"codigo":1010,"producto":"ADAPTADOR MACHO PVC PRESION X 1/2\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":5.0,"existencia":-54.0,"precio":429.0},{"codigo":1011,"producto":"ADAPTADOR MACHO PVC PRESION X 1-1/2\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":32.0,"precio":3987.0},{"codigo":1012,"producto":"ADAPTADOR MACHO PVC PRESION X 2\"","categoria":"FONTANERIA","ubicacion":"ESTANTE 3","und":"UND","stock_min":2.0,"existencia":0.0,"precio":0},{"codigo":1013,"producto":"ADAPTADOR MACHO PVC PRESION X 3\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":0.0,"precio":22392.0},{"codigo":1014,"producto":"ADAPTADOR MACHO PVC PRESION X 4\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":3.0,"precio":41192.0},{"codigo":1015,"producto":"ADAPTADOR MACHO PVC PRESION X 1\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":2.0,"precio":1618.0},{"codigo":1016,"producto":"ADAPTADOR MACHO PVC PRESION X 2-1/2\"","categoria":"FONTANERIA","ubicacion":"BOD-2","und":"UND","stock_min":2.0,"existencia":0.0,"precio":0},{"codigo":1017,"producto":"ADAPTADOR MACHO PVC PRESION X 3/4\"","categoria":"FONTANERIA","ubicacion":"ESTANTE 3","und":"UND","stock_min":2.0,"existencia":20.0,"precio":776.0},{"codigo":1018,"producto":"ADAPTADOR TERMINAL CONDUIT X 1\"","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":10.0,"existencia":43.0,"precio":1263.0},{"codigo":1019,"producto":"ADAPTADOR TERMINAL CONDUIT X 2\"","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":16.0,"precio":5178.0},{"codigo":1020,"producto":"ADAPTADOR TERMINAL CONDUIT X 3/4\"","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":10.0,"existencia":99.0,"precio":384.72},{"codigo":1021,"producto":"ESPATULA PLASTICA 4\"","categoria":"CAMPAMENTO","ubicacion":"N/A","und":"UND","stock_min":0.0,"existencia":0.0,"precio":0},{"codigo":1022,"producto":"ALAMBRE #12 AWG CU BLANCO X 100 MTS","categoria":"ELECTRICO","ubicacion":"SECC-4","und":"MTL","stock_min":1.0,"existencia":492.0,"precio":0},{"codigo":1023,"producto":"ALAMBRE #12 AWG CU  VERDE X 100 MTS","categoria":"ELECTRICO","ubicacion":"SECC-4","und":"MTL","stock_min":1.0,"existencia":402.0,"precio":1979.0},{"codigo":1024,"producto":"RESTRICTOR HD 100 MMX 4\" P/TUB PVC X ACC PVC PRC - 1200","categoria":"RCI","ubicacion":"SECC-6","und":"UND","stock_min":1.0,"existencia":0.0,"precio":0},{"codigo":1025,"producto":"ALAMBRE #12 AWG CU NEGRO X 100 MTS","categoria":"ELECTRICO","ubicacion":"SECC-4","und":"MTL","stock_min":1.0,"existencia":2099.0,"precio":1979.0},{"codigo":1026,"producto":"BLOQUE 09 #4  09*19*39 6 MPA NTC 4076 GRIS","categoria":"ACABADOS","ubicacion":"OBRA","und":"UND","stock_min":0.0,"existencia":11232.0,"precio":0},{"codigo":1027,"producto":"ANGULO GALVANIZADO 0.40X2440MM CAL26","categoria":"ACABADOS","ubicacion":"BOD-T1","und":"UND","stock_min":2.0,"existencia":24.0,"precio":0},{"codigo":1028,"producto":"ARANDELA GALVANIZADA RD PLANA 3/8","categoria":"CONSUMIBLES","ubicacion":"BOD-1","und":"UND","stock_min":2.0,"existencia":0.0,"precio":0},{"codigo":1029,"producto":"ARENA","categoria":"BLOQUES Y AGREGADOS","ubicacion":"OBRA","und":"M3","stock_min":3.0,"existencia":425.0,"precio":0},{"codigo":1030,"producto":"PALUSTRE 6\"","categoria":"CAMPAMENTO","ubicacion":"N/A","und":"UND","stock_min":0.0,"existencia":0.0,"precio":0},{"codigo":1031,"producto":"BARBUQUEJOS","categoria":"EPP","ubicacion":"ESTANTE 1","und":"UND","stock_min":5.0,"existencia":3.0,"precio":0},{"codigo":1033,"producto":"BLOQUE  (0,10)","categoria":"BLOQUES Y AGREGADOS","ubicacion":"OBRA","und":"UND","stock_min":100.0,"existencia":3750.0,"precio":0},{"codigo":1034,"producto":"BLOQUE  (0,15)","categoria":"BLOQUES Y AGREGADOS","ubicacion":"OBRA","und":"UND","stock_min":50.0,"existencia":500.0,"precio":0},{"codigo":1037,"producto":"BREAKER EXE PLUG 1P 20 A 120/240V","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":46.0,"precio":12900.0},{"codigo":1038,"producto":"ESTUCO INTERIOR EN  POLVO X 25 KG","categoria":"QUIMICO","ubicacion":"QUIMICO","und":"UND","stock_min":1.0,"existencia":1.0,"precio":0},{"codigo":1039,"producto":"BRIDA BLAZE MASTER X 2-1/2","categoria":"RCI","ubicacion":"SECC-6","und":"UND","stock_min":1.0,"existencia":4.0,"precio":0},{"codigo":1047,"producto":"BROCA MURO SDS PLUS * 1/2 X 4X 6","categoria":"CONSUMIBLES","ubicacion":"SECC-2","und":"UND","stock_min":1.0,"existencia":61.0,"precio":12852.0},{"codigo":1051,"producto":"BROCHA DE 3\"","categoria":"CONSUMIBLES","ubicacion":"SECC-2","und":"UND","stock_min":2.0,"existencia":41.0,"precio":0},{"codigo":1055,"producto":"BUJE SANITARIO 3X2","categoria":"FONTANERIA","ubicacion":"ESTANTE 5","und":"UND","stock_min":1.0,"existencia":31.0,"precio":5416.0},{"codigo":1056,"producto":"BUJE SANITARIO 4X2","categoria":"FONTANERIA","ubicacion":"ESTANTE 4","und":"UND","stock_min":1.0,"existencia":58.0,"precio":9538.0},{"codigo":1079,"producto":"CAJA 2X4 PVC CONDUIT","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":20.0,"existencia":62.0,"precio":2298.0},{"codigo":1080,"producto":"CAJA 4X4 PVC","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":10.0,"existencia":98.0,"precio":3107.0},{"codigo":1082,"producto":"CAJA OCTOGONAL EMT","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":66.0,"precio":2900.0},{"codigo":1084,"producto":"TABLERO ENCHUFABLE MONOFASICO X 8 CIRC","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":0.0,"existencia":1.0,"precio":109900.0},{"codigo":1085,"producto":"CAJA REGISTRO EMPALME METALICA 40*40*20","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":1.0,"existencia":3.0,"precio":86950.0},{"codigo":1091,"producto":"CEMENTO GRIS USO GENERAL NTC 50KG","categoria":"QUIMICO","ubicacion":"QUIMICO","und":"UND","stock_min":25.0,"existencia":40.0,"precio":0},{"codigo":1093,"producto":"CERAMICA AVILA 61*61 X 1,86M2 (5 PZAS)","categoria":"ACABADOS","ubicacion":"BODEGA 1","und":"UND","stock_min":0.0,"existencia":60.4,"precio":0},{"codigo":1101,"producto":"CHAZO PLASTICO TIPO CAIMAN 1/4","categoria":"CONSUMIBLES","ubicacion":"BOD-1","und":"UND","stock_min":200.0,"existencia":300.0,"precio":0},{"codigo":1102,"producto":"ANCLAJE MULTIUSO RL ROSCA INTERNA 3/8","categoria":"CONSUMIBLES","ubicacion":"BOD-2","und":"UND","stock_min":10.0,"existencia":88.0,"precio":0},{"codigo":1106,"producto":"CHAZO PLASTICO X 1/4","categoria":"CONSUMIBLES","ubicacion":"BOD-1","und":"UND","stock_min":10.0,"existencia":580.0,"precio":0},{"codigo":1110,"producto":"CINTA AISLANTE AZUL","categoria":"ELECTRICO","ubicacion":"SECC-4","und":"UND","stock_min":1.0,"existencia":3.0,"precio":0},{"codigo":1131,"producto":"CODO C/ROSCA PRESION 1/2*90","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":3.0,"precio":1425.0},{"codigo":1143,"producto":"CODO LISO PVC PRESION 90 X 1/2","categoria":"FONTANERIA","ubicacion":"ESTANTE 3","und":"UND","stock_min":2.0,"existencia":162.0,"precio":620.0},{"codigo":1157,"producto":"CODO SANITARIO 45X2  CXC","categoria":"FONTANERIA","ubicacion":"ESTANTE 5","und":"UND","stock_min":2.0,"existencia":33.0,"precio":3816.0},{"codigo":1159,"producto":"CODO SANITARIO 45X4 CXC","categoria":"FONTANERIA","ubicacion":"ESTANTE 4","und":"UND","stock_min":2.0,"existencia":77.0,"precio":14445.0},{"codigo":1173,"producto":"CURVA CONDUIT X 1 X 90 CXE","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":42.0,"precio":3978.0},{"codigo":1176,"producto":"CURVA CONDUIT X 90 X 3/4 CXE","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":10.0,"existencia":37.0,"precio":2098.0},{"codigo":1185,"producto":"DIESEL","categoria":"QUIMICO","ubicacion":"QUIMICO","und":"GLN","stock_min":1.0,"existencia":20.0,"precio":0},{"codigo":1188,"producto":"DISCO DIAMANTADO SEGMENTADO  X 4-1/2","categoria":"CONSUMIBLES","ubicacion":"SECC-2","und":"UND","stock_min":5.0,"existencia":26.0,"precio":0},{"codigo":1193,"producto":"DISTANCIADOR MALLA DOBLE X15 CM","categoria":"ESTRUCTURA","ubicacion":"BOD-2","und":"UND","stock_min":50.0,"existencia":4100.0,"precio":0},{"codigo":1195,"producto":"DISTANCIADOR MURO RUEDA X 10 CM","categoria":"ESTRUCTURA","ubicacion":"BOD-2","und":"UND","stock_min":50.0,"existencia":5390.0,"precio":292.0},{"codigo":1215,"producto":"GRIFERIA PARA LAVAPLATOS","categoria":"ACABADOS","ubicacion":"BODEGA-TORRE","und":"UND","stock_min":1.0,"existencia":41.0,"precio":0},{"codigo":1218,"producto":"GUANTE MULTIFLEX NYLON","categoria":"EPP","ubicacion":"ESTANTE 1","und":"UND","stock_min":10.0,"existencia":13.0,"precio":4000.0},{"codigo":1224,"producto":"INTERRUPTOR DOBLE","categoria":"ELECTRICO","ubicacion":"SECC-5","und":"UND","stock_min":1.0,"existencia":55.0,"precio":23250.0},{"codigo":1225,"producto":"INTERRUPTOR SENCILLO","categoria":"ELECTRICO","ubicacion":"SECC-5","und":"UND","stock_min":1.0,"existencia":12.0,"precio":14900.0},{"codigo":1231,"producto":"LAMPARA LED PANEL 18W EMPOTRAR","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":1.0,"existencia":8.0,"precio":18900.0},{"codigo":1234,"producto":"LENTES DE SEGURIDAD CLAROS/TRANSPARENTES","categoria":"EPP","ubicacion":"ESTANTE 1","und":"UND","stock_min":10.0,"existencia":22.0,"precio":3790.0},{"codigo":1235,"producto":"LENTES DE SEGURIDAD OSCURO/GRIS","categoria":"EPP","ubicacion":"ESTANTE 1","und":"UND","stock_min":10.0,"existencia":33.0,"precio":3790.0},{"codigo":1241,"producto":"MANGUERA LAVAMANOS/LAVAPLATOS","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":2.0,"existencia":7.0,"precio":0},{"codigo":1278,"producto":"TAPON / PROTECTOR AUDITIVO","categoria":"EPP","ubicacion":"ESTANTE 1","und":"UND","stock_min":10.0,"existencia":40.0,"precio":5650.0},{"codigo":1283,"producto":"PUNTILLA DE HIERRO LISA C/CABEZA  3-1/2 X CAJA","categoria":"CONSUMIBLES","ubicacion":"ESTANTE 1","und":"UND","stock_min":1.0,"existencia":7.0,"precio":3100.0},{"codigo":1301,"producto":"REDUCCION LISA PVC PRESION 3/4 X 1/2","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":72.0,"precio":603.0},{"codigo":1302,"producto":"REDUCCION LISA PVC PRESION 3X 2","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":22.0,"precio":19509.0},{"codigo":1319,"producto":"REJILLA  3*2\" CUADRADA PVC","categoria":"FONTANERIA","ubicacion":"ESTANTE 4","und":"UND","stock_min":1.0,"existencia":112.0,"precio":13900.0},{"codigo":1330,"producto":"ROSETA PLAFON BLANCO X 6 UNID AVE","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":142.0,"precio":3900.0},{"codigo":1336,"producto":"SIKA 1 PLUS X 20 KG","categoria":"QUIMICO","ubicacion":"QUIMICO","und":"UND","stock_min":1.0,"existencia":3.0,"precio":0},{"codigo":1349,"producto":"SILICONA TRANSPARENTE X 300ML","categoria":"QUIMICO","ubicacion":"SECC-1","und":"UND","stock_min":1.0,"existencia":17.0,"precio":0},{"codigo":1372,"producto":"TAPA CIEGA 2X4 GALVANIZADA","categoria":"ELECTRICO","ubicacion":"","und":"UND","stock_min":2.0,"existencia":25.0,"precio":1350.0},{"codigo":1374,"producto":"TAPA CIEGA 4X4 PVC","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":11.0,"precio":1000.0},{"codigo":1376,"producto":"TAPA CIEGA CIRCULAR/OCTOGONAL PVC","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":2.0,"existencia":84.0,"precio":1000.0},{"codigo":1377,"producto":"TAPA CIEGA PVC 2*4","categoria":"ELECTRICO","ubicacion":"ESTANTE 2","und":"UND","stock_min":10.0,"existencia":155.0,"precio":1000.0},{"codigo":1391,"producto":"TAPON C/ROSCA PRESION 1/2","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":40.0,"precio":485.0},{"codigo":1394,"producto":"TAPON LISO PRESION  X 1/2","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":57.0,"precio":356.0},{"codigo":1414,"producto":"TEE LISA PVC  PRESION 1/2","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":53.0,"precio":0},{"codigo":1417,"producto":"TEE LISA PVC PRESION X 3\"","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":30.0,"precio":54978.0},{"codigo":1418,"producto":"TEE LISA PVC PRESION 3/4","categoria":"FONTANERIA","ubicacion":"SECC-3","und":"UND","stock_min":1.0,"existencia":187.0,"precio":1383.0},{"codigo":1422,"producto":"TEE SANITARIA 3X2","categoria":"FONTANERIA","ubicacion":"ESTANTE 5","und":"UND","stock_min":1.0,"existencia":3.0,"precio":15669.0},{"codigo":1424,"producto":"TEE SANITARIA X 2\"","categoria":"FONTANERIA","ubicacion":"ESTANTE 4","und":"UND","stock_min":2.0,"existencia":11.0,"precio":6503.0},{"codigo":1442,"producto":"TOMACORRIENTE DOBLE BLANCO","categoria":"ELECTRICO","ubicacion":"SECC-5","und":"UND","stock_min":1.0,"existencia":270.0,"precio":6900.0},{"codigo":1459,"producto":"TORNILLO DRYWALL 10 X 3","categoria":"CONSUMIBLES","ubicacion":"BOD-1","und":"UND","stock_min":10.0,"existencia":455.0,"precio":0},{"codigo":1465,"producto":"TORNILLO GOLOZO DE 10X1 1/2","categoria":"CONSUMIBLES","ubicacion":"ESTANTE 1","und":"UND","stock_min":10.0,"existencia":335.0,"precio":0},{"codigo":1469,"producto":"TORNILLO PANEL DRYWALL PUNTA BROCA 6X1","categoria":"CONSUMIBLES","ubicacion":"SECC-2","und":"UND","stock_min":0.0,"existencia":2000.0,"precio":0},{"codigo":1472,"producto":"TRITURADO / GRAVILLA X 1/2","categoria":"BLOQUES Y AGREGADOS","ubicacion":"","und":"M3","stock_min":2.0,"existencia":159.0,"precio":0},{"codigo":1476,"producto":"TUBO CONDUIT 1\" X 3 MTS","categoria":"ELECTRICO","ubicacion":"","und":"UND","stock_min":10.0,"existencia":21.0,"precio":12487.0},{"codigo":1477,"producto":"TUBO CONDUIT 1-1/2 X 3 MTS","categoria":"ELECTRICO","ubicacion":"","und":"UND","stock_min":2.0,"existencia":27.0,"precio":24592.0},{"codigo":1479,"producto":"TUBO CONDUIT 3/4 X 3 MTS","categoria":"ELECTRICO","ubicacion":"","und":"UND","stock_min":10.0,"existencia":8.0,"precio":9009.0},{"codigo":1483,"producto":"TUBO EMT 3/4 X 3 MTS","categoria":"ELECTRICO","ubicacion":"","und":"UND","stock_min":0.0,"existencia":126.5,"precio":0},{"codigo":1490,"producto":"TUBO PRESION X 3/4\"  X 6 MTS","categoria":"FONTANERIA","ubicacion":"BODEGA 1","und":"UND","stock_min":2.0,"existencia":361.0,"precio":19849.0},{"codigo":1491,"producto":"TUBO PRESION  X 4\" RDE 21 X 6 MTS","categoria":"FONTANERIA","ubicacion":"BODEGA 1","und":"UND","stock_min":1.0,"existencia":2.0,"precio":384616.0}];
+
+// Build lookup map
+const CATALOG = {};
+BASE_CATALOG.forEach(p => CATALOG[p.codigo] = p);
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let DB = null;
+let isOnline = false;
+let state = {
+  tab: 'dashboard',
+  sub: 'lista',
+  search: '',
+  catFilter: 'Todos',
+  statFilter: 'Todos',
+  stockOverrides: {},   // {codigo: existencia_actual}
+  movements: {},
+  remisiones: {},
+  loans: {},
+  orders: {}
+};
+
+// Local fallback
+function loadLocal() {
+  try { state.stockOverrides = JSON.parse(localStorage.getItem('tcp_stock') || '{}'); } catch(e){}
+  try { state.movements    = JSON.parse(localStorage.getItem('tcp_moves') || '{}'); } catch(e){}
+  try { state.remisiones   = JSON.parse(localStorage.getItem('tcp_rem')   || '{}'); } catch(e){}
+  try { state.loans        = JSON.parse(localStorage.getItem('tcp_loans') || '{}'); } catch(e){}
+  try { state.orders       = JSON.parse(localStorage.getItem('tcp_ord')   || '{}'); } catch(e){}
+}
+function saveLocal() {
+  localStorage.setItem('tcp_stock', JSON.stringify(state.stockOverrides));
+  localStorage.setItem('tcp_moves', JSON.stringify(state.movements));
+  localStorage.setItem('tcp_rem',   JSON.stringify(state.remisiones));
+  localStorage.setItem('tcp_loans', JSON.stringify(state.loans));
+  localStorage.setItem('tcp_ord',   JSON.stringify(state.orders));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════════════════
+function initFirebase() {
+  try {
+    const app = firebase.initializeApp(FB_CONFIG);
+    DB = firebase.database(app);
+
+    DB.ref('.info/connected').on('value', snap => {
+      isOnline = snap.val() === true;
+      setSyncUI(isOnline ? 'online' : 'offline');
+    });
+
+    // Escuchar cambios en tiempo real
+    DB.ref('tcp').on('value', snap => {
+      const data = snap.val() || {};
+      if (data.stock)     state.stockOverrides = data.stock;
+      if (data.moves)     state.movements      = data.moves;
+      if (data.rem)       state.remisiones     = data.rem;
+      if (data.loans)     state.loans          = data.loans;
+      if (data.orders)    state.orders         = data.orders;
+      saveLocal();
+      setSyncUI('online');
+      render();
+    });
+  } catch(e) {
+    console.warn('Firebase no configurado, usando modo local:', e.message);
+    setSyncUI('offline');
+    loadLocal();
+    render();
+  }
+}
+
+function dbSet(path, val) {
+  if (DB && isOnline) {
+    setSyncUI('syncing');
+    return DB.ref('tcp/' + path).set(val)
+      .then(() => setSyncUI('online'))
+      .catch(e => { setSyncUI('offline'); saveLocal(); });
+  } else {
+    saveLocal();
+    return Promise.resolve();
+  }
+}
+
+function setSyncUI(status) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  if (!dot) return;
+  dot.className = 'sync-dot ' + status;
+  lbl.textContent = status === 'online' ? 'En línea' : status === 'syncing' ? 'Sincronizando...' : 'Sin conexión';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function getStock(codigo) {
+  const ov = state.stockOverrides[codigo];
+  return ov !== undefined ? ov : (CATALOG[codigo] ? CATALOG[codigo].existencia : 0);
+}
+function getStatus(p) {
+  const ex = getStock(p.codigo);
+  if (ex <= 0) return 'Agotado';
+  if (ex < p.stock_min) return 'Menor al mínimo';
+  return 'OK';
+}
+function getProducts() {
+  return BASE_CATALOG.map(p => ({
+    ...p,
+    existencia: getStock(p.codigo),
+    status: getStatus(p)
+  }));
+}
+function objArr(obj) { return obj ? Object.values(obj) : []; }
+function ts() { return Date.now(); }
+function todayISO() { return new Date().toISOString().split('T')[0]; }
+function fmtMoney(n) { return n ? '$' + Number(n).toLocaleString('es-CO') : 'N/D'; }
+function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso+'T00:00:00'); return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); }
+function nextNum(obj, prefix) {
+  const keys = Object.keys(obj || {});
+  return prefix + String(keys.length + 1).padStart(4,'0');
+}
+
+function findProduct(query) {
+  query = String(query).trim().toLowerCase();
+  const byCode = BASE_CATALOG.find(p => String(p.codigo) === query);
+  if (byCode) return byCode;
+  return BASE_CATALOG.find(p => p.producto.toLowerCase().includes(query));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER ENGINE
+// ═══════════════════════════════════════════════════════════════
+function render() {
+  const mc = document.getElementById('mainContent');
+  if (!mc) return;
+  const prods = getProducts();
+  const pages = { dashboard: renderDash, inventario: renderInv, movimientos: renderMovs, remisiones: renderRemisiones, prestamos: renderPrestamos, compras: renderCompras, reportes: renderReportes };
+  mc.innerHTML = (pages[state.tab] || renderDash)(prods);
+  bindNav();
+}
+
+function bindNav() {
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.onclick = () => { state.tab = b.dataset.tab; state.sub = 'lista'; render(); };
+  });
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderDash(prods) {
+  const ok = prods.filter(p=>p.status==='OK').length;
+  const low = prods.filter(p=>p.status==='Menor al mínimo').length;
+  const out = prods.filter(p=>p.status==='Agotado').length;
+  const alerts = prods.filter(p=>p.status!=='OK').slice(0,5);
+  const moves = objArr(state.movements).slice(-3).reverse();
+  return `
+    <div class="stats">
+      <div class="stat"><div class="stat-n" style="color:var(--text)">${prods.length}</div><div class="stat-l">Total</div></div>
+      <div class="stat"><div class="stat-n" style="color:var(--ok)">${ok}</div><div class="stat-l">✅ OK</div></div>
+      <div class="stat"><div class="stat-n" style="color:var(--danger)">${out}</div><div class="stat-l">⛔ Agotados</div></div>
+    </div>
+    ${low>0?`<div class="alert"><div class="ico">⚠️</div><div><div class="alert-t">${low} productos bajo el mínimo</div><div class="alert-s">Revisar reposición urgente</div></div></div>`:''}
+    <div class="card">
+      <div class="card-hdr"><span class="dot"></span>Acciones Rápidas</div>
+      <div class="btn-grid">
+        <button class="btn btn-primary" onclick="openEntradaForm()">📥 Registrar Entrada</button>
+        <button class="btn btn-secondary" style="background:var(--accent2);color:#fff;border:none" onclick="openSalidaForm()">📤 Despachar</button>
+        <button class="btn btn-info" onclick="openRemisionForm()">📋 Nueva Remisión</button>
+        <button class="btn btn-secondary" onclick="openPrestamoForm()">🔧 Préstamo</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="dot" style="background:var(--danger)"></span>Alertas de Stock</div>
+      ${alerts.length===0?'<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px">✅ Todo en niveles correctos</div>':
+        alerts.map(p=>prodItemHtml(p)).join('')}
+      <button class="btn btn-secondary" style="margin-top:8px;font-size:12px" onclick="state.tab='inventario';render()">Ver inventario completo →</button>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="dot"></span>Últimos Movimientos</div>
+      ${moves.length===0?'<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px">Sin movimientos</div>':
+        moves.map(m=>moveItemHtml(m)).join('')}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INVENTARIO
+// ═══════════════════════════════════════════════════════════════
+function renderInv(prods) {
+  const cats = ['Todos', ...new Set(prods.map(p=>p.categoria).filter(Boolean).sort())];
+  const stats = ['Todos','OK','Menor al mínimo','Agotado'];
+  let list = prods.filter(p => {
+    const q = state.search.toLowerCase();
+    const ms = !q || p.producto.toLowerCase().includes(q) || String(p.codigo).includes(q) || p.ubicacion.toLowerCase().includes(q);
+    const mc = state.catFilter==='Todos' || p.categoria===state.catFilter;
+    const mst = state.statFilter==='Todos' || p.status===state.statFilter;
+    return ms && mc && mst;
+  });
+  return `
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input class="search-inp" type="search" placeholder="Código, nombre o ubicación..." value="${state.search}"
+        oninput="state.search=this.value;render()">
+    </div>
+    <div class="filters">${stats.map(s=>`<button class="fbtn ${state.statFilter===s?'on':''}" onclick="state.statFilter='${s}';render()">${s}</button>`).join('')}</div>
+    <div class="filters">${cats.map(c=>`<button class="fbtn ${state.catFilter===c?'on':''}" onclick="state.catFilter='${c}';render()">${c==='Todos'?'Todas':c}</button>`).join('')}</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:7px">${list.length} productos</div>
+    ${list.length===0?`<div class="empty"><div class="ico">📦</div><div class="msg">Sin resultados</div></div>`:list.map(p=>prodItemHtml(p)).join('')}`;
+}
+
+function prodItemHtml(p) {
+  const sc = p.status==='Agotado'?'out':p.status==='Menor al mínimo'?'low':'ok';
+  const qc = p.existencia<=0?'qty-out':p.existencia<p.stock_min?'qty-warn':'qty-ok';
+  return `<div class="pi ${sc}" onclick="openProdDetail(${p.codigo})">
+    <div class="pi-info">
+      <div class="pi-name">${p.producto}</div>
+      <div class="pi-meta"><span>${p.codigo}</span><span>${p.categoria}</span>${p.ubicacion?`<span class="chip">${p.ubicacion}</span>`:''}</div>
+    </div>
+    <div class="pi-stock">
+      <div class="pi-qty" style="color:${p.existencia<=0?'var(--danger)':p.existencia<p.stock_min?'var(--warn)':'var(--ok)'}">${p.existencia}</div>
+      <div class="pi-und">${p.und}</div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MOVIMIENTOS
+// ═══════════════════════════════════════════════════════════════
+function renderMovs(prods) {
+  const subs = ['entrada','salida','historial'];
+  if (!subs.includes(state.sub)) state.sub = 'entrada';
+  const moves = objArr(state.movements).reverse();
+  return `
+    <div class="stabs">
+      <button class="stab ${state.sub==='entrada'?'on':''}" onclick="state.sub='entrada';render()">📥 Entrada</button>
+      <button class="stab ${state.sub==='salida'?'on':''}" onclick="state.sub='salida';render()">📤 Despacho</button>
+      <button class="stab ${state.sub==='historial'?'on':''}" onclick="state.sub='historial';render()">📋 Historial</button>
+    </div>
+    ${state.sub==='historial'?
+      (moves.length===0?`<div class="empty"><div class="ico">📋</div><div class="msg">Sin movimientos</div></div>`:moves.map(m=>moveItemHtml(m)).join(''))
+      :state.sub==='entrada'?entradaFormHtml(prods):salidaFormHtml(prods)}`;
+}
+
+function moveItemHtml(m) {
+  const isIn = m.tipo==='ENTRADA', isDev = m.tipo==='DEVOLUCION';
+  const cls = isIn?'#0d2a1a':isDev?'#1a0d2a':'#2a0d0d';
+  const icon = isIn?'📥':isDev?'↩️':'📤';
+  const sign = (isIn||isDev)?'+':'-';
+  const color = (isIn||isDev)?'var(--ok)':'var(--danger)';
+  return `<div class="mi">
+    <div class="mi-ico" style="background:${cls}">${icon}</div>
+    <div class="mi-info">
+      <div class="mi-name">${m.producto||'—'}</div>
+      <div class="mi-detail">${m.fecha||''} · Cód: ${m.codigo||'—'} · ${m.responsable||'—'}</div>
+      ${m.descripcion?`<div class="mi-detail">${m.descripcion}</div>`:''}
+    </div>
+    <div class="mi-qty" style="color:${color}">${sign}${m.cantidad}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CÓDIGO INTERNO — búsqueda y preview
+// ═══════════════════════════════════════════════════════════════
+function codeSearchHtml(id, label='Código Interno del Producto') {
+  return `
+    <div class="fg">
+      <label class="fl">${label}</label>
+      <div class="code-search">
+        <input class="fi" type="text" id="${id}" placeholder="Ej: 1001, 1079..." 
+          oninput="previewProduct('${id}')"
+          onkeydown="if(event.key==='Enter'){previewProduct('${id}');event.preventDefault()}">
+        <button class="code-search-btn" onclick="previewProduct('${id}')">Buscar</button>
+      </div>
+      <div class="product-preview" id="pp_${id}">
+        <div class="pp-name" id="pp_name_${id}"></div>
+        <div class="pp-meta" id="pp_meta_${id}"></div>
+      </div>
+    </div>`;
+}
+
+function previewProduct(inputId) {
+  const val = document.getElementById(inputId).value;
+  const prod = findProduct(val);
+  const pp = document.getElementById('pp_'+inputId);
+  const pname = document.getElementById('pp_name_'+inputId);
+  const pmeta = document.getElementById('pp_meta_'+inputId);
+  if (prod) {
+    const ex = getStock(prod.codigo);
+    const st = getStatus(prod);
+    const sc = st==='Agotado'?'b-danger':st==='Menor al mínimo'?'b-warn':'b-ok';
+    pname.textContent = prod.producto;
+    pmeta.innerHTML = `<span>${prod.codigo}</span><span>${prod.categoria}</span><span class="chip">${prod.ubicacion}</span><span class="badge ${sc}">${ex} ${prod.und}</span>`;
+    pp.classList.add('show');
+    // Fill codigo field if user typed a name
+    document.getElementById(inputId).value = prod.codigo;
+  } else {
+    pp.classList.remove('show');
+    if (val) toast('⚠️ Código no encontrado', true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRADA FORM
+// ═══════════════════════════════════════════════════════════════
+function entradaFormHtml(prods) {
+  return `<div class="card">
+    <div class="card-hdr"><span class="dot"></span>F-ALM — Registro de Entrada</div>
+    ${codeSearchHtml('f_cod_ent', 'Código Interno del Producto')}
+    <div class="fr">
+      <div class="fg"><label class="fl">Cantidad</label><input class="fi" type="number" id="f_cant_ent" placeholder="0" min="0.01" step="0.01"></div>
+      <div class="fg"><label class="fl">Fecha</label><input class="fi" type="date" id="f_fecha_ent" value="${todayISO()}"></div>
+    </div>
+    <div class="fg"><label class="fl">N° Remisión / Factura</label><input class="fi" type="text" id="f_rem_ent" placeholder="No. documento"></div>
+    <div class="fg"><label class="fl">Proveedor</label><input class="fi" type="text" id="f_prov_ent" placeholder="Nombre del proveedor"></div>
+    <div class="fg"><label class="fl">Recibe (Almacenista)</label><input class="fi" type="text" id="f_resp_ent" placeholder="Nombre completo"></div>
+    <div class="fg"><label class="fl">Observaciones</label><textarea class="fta" id="f_obs_ent" placeholder="Notas, lote, estado..."></textarea></div>
+    <button class="btn btn-primary" onclick="registrarEntrada()">✅ Registrar Entrada</button>
+  </div>`;
+}
+
+function salidaFormHtml(prods) {
+  return `<div class="card">
+    <div class="card-hdr"><span class="dot" style="background:var(--accent2)"></span>F-ALM-02/03 — Autorización y Despacho</div>
+    ${codeSearchHtml('f_cod_sal', 'Código Interno del Producto')}
+    <div class="fr">
+      <div class="fg"><label class="fl">Cantidad</label><input class="fi" type="number" id="f_cant_sal" placeholder="0" min="0.01" step="0.01"></div>
+      <div class="fg"><label class="fl">Fecha</label><input class="fi" type="date" id="f_fecha_sal" value="${todayISO()}"></div>
+    </div>
+    <div class="fg"><label class="fl">N° Solicitud</label><input class="fi" type="text" id="f_nsol_sal" placeholder="N° de solicitud"></div>
+    <div class="fg"><label class="fl">Autorizado por</label><input class="fi" type="text" id="f_auth_sal" placeholder="Nombre quien autoriza"></div>
+    <div class="fg"><label class="fl">Retira (Nombre completo)</label><input class="fi" type="text" id="f_resp_sal" placeholder="Nombre y apellido"></div>
+    <div class="fg"><label class="fl">Obra / Destino / Uso</label><input class="fi" type="text" id="f_dest_sal" placeholder="Etapa, zona o área de uso"></div>
+    <button class="btn" style="background:var(--accent2);color:#fff" onclick="registrarSalida()">📤 Registrar Despacho</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REMISIONES
+// ═══════════════════════════════════════════════════════════════
+function renderRemisiones(prods) {
+  const subs = ['nueva','lista'];
+  if (!subs.includes(state.sub)) state.sub = 'lista';
+  const rems = objArr(state.remisiones).reverse();
+  return `
+    <div class="stabs">
+      <button class="stab ${state.sub==='nueva'?'on':''}" onclick="state.sub='nueva';render()">➕ Nueva Remisión</button>
+      <button class="stab ${state.sub==='lista'?'on':''}" onclick="state.sub='lista';render()">📋 Historial (${rems.length})</button>
+    </div>
+    ${state.sub==='nueva'?remisionFormHtml(prods):remisionListHtml(rems)}`;
+}
+
+function remisionFormHtml(prods) {
+  const nrem = nextNum(state.remisiones, 'REM-');
+  return `<div class="card">
+    <div class="card-hdr"><span class="dot" style="background:var(--info)"></span>📋 Remisión de Materiales y/o Servicios</div>
+    <div class="fr">
+      <div class="fg"><label class="fl">N° Remisión</label><input class="fi" id="f_nrem" value="${nrem}" readonly></div>
+      <div class="fg"><label class="fl">Fecha</label><input class="fi" type="date" id="f_fecha_rem" value="${todayISO()}"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Elaborado por</label><input class="fi" id="f_elab_rem" placeholder="Nombre"></div>
+      <div class="fg"><label class="fl">Cargo</label><input class="fi" id="f_cargo_rem" placeholder="Cargo"></div>
+    </div>
+    <div class="fg"><label class="fl">Obra / Proyecto</label><input class="fi" id="f_obra_rem" placeholder="Nombre del proyecto"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Entregado a</label><input class="fi" id="f_para_rem" placeholder="Nombre receptor"></div>
+      <div class="fg"><label class="fl">Empresa / Contratista</label><input class="fi" id="f_emp_rem" placeholder="Empresa"></div>
+    </div>
+    <div class="fg"><label class="fl">Tipo</label>
+      <select class="fs" id="f_tipo_rem">
+        <option value="materiales">Remisión de Materiales</option>
+        <option value="servicios">Remisión de Servicios</option>
+        <option value="mixta">Mixta (Materiales + Servicios)</option>
+      </select>
+    </div>
+
+    <div class="card-hdr" style="margin-top:10px"><span class="dot"></span>Ítems</div>
+    <div id="rem-items-wrap">
+      <div class="rem-line" id="ri-0">
+        ${codeSearchInlineHtml(0)}
+      </div>
+    </div>
+    <button class="btn btn-secondary btn-sm" style="margin-bottom:10px" onclick="addRemItem()">➕ Agregar ítem</button>
+
+    <div class="fg"><label class="fl">Observaciones</label><textarea class="fta" id="f_obs_rem" placeholder="Condiciones, estado, notas..."></textarea></div>
+    <div class="fg"><label class="fl">Firma / Aprobación</label><input class="fi" id="f_firma_rem" placeholder="Nombre quien aprueba la salida"></div>
+    <button class="btn btn-info" onclick="registrarRemision()">📋 Generar Remisión</button>
+  </div>`;
+}
+
+function codeSearchInlineHtml(idx) {
+  return `
+    <div style="flex:1">
+      <input class="fi ri-cod" id="ri_cod_${idx}" type="text" placeholder="Código producto" 
+        style="font-size:12px;padding:7px 8px;margin-bottom:4px"
+        onblur="autoFillRemItem(${idx})">
+      <div class="ri-preview" id="ri_prev_${idx}" style="font-size:10px;color:var(--muted)"></div>
+    </div>
+    <input class="fi ri-cant" id="ri_cant_${idx}" type="number" placeholder="Cant." style="width:70px;font-size:12px;padding:7px 8px">
+    <button class="rem-line-x" onclick="removeRemItem(${idx})">✕</button>`;
+}
+
+function autoFillRemItem(idx) {
+  const codEl = document.getElementById('ri_cod_'+idx);
+  if (!codEl) return;
+  const prod = findProduct(codEl.value);
+  const prev = document.getElementById('ri_prev_'+idx);
+  if (prod && prev) {
+    const ex = getStock(prod.codigo);
+    prev.textContent = prod.producto + ' · Exist: ' + ex + ' ' + prod.und;
+    codEl.value = prod.codigo;
+  }
+}
+
+let remItemCount = 1;
+function addRemItem() {
+  const wrap = document.getElementById('rem-items-wrap');
+  if (!wrap) return;
+  const div = document.createElement('div');
+  div.className = 'rem-line';
+  div.id = 'ri-' + remItemCount;
+  div.innerHTML = codeSearchInlineHtml(remItemCount);
+  wrap.appendChild(div);
+  remItemCount++;
+}
+
+function removeRemItem(idx) {
+  const el = document.getElementById('ri-'+idx);
+  if (el) el.remove();
+}
+
+function remisionListHtml(rems) {
+  if (rems.length === 0) return `<div class="empty"><div class="ico">📋</div><div class="msg">Sin remisiones generadas</div></div>`;
+  return rems.map(r => `
+    <div class="rem-item">
+      <div class="rem-hdr">
+        <div>
+          <div class="rem-num">${r.numero}</div>
+          <div style="font-size:11px;color:var(--muted)">${fmtDate(r.fecha)} · ${r.elaboradoPor||'—'}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge b-info">${r.tipo==='servicios'?'SERVICIOS':r.tipo==='mixta'?'MIXTA':'MATERIALES'}</span>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">${r.obra||'—'}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Para: ${r.para||'—'} · ${r.empresa||'—'}</div>
+      <div class="rem-items">
+        ${(r.items||[]).map(it=>`
+          <div class="rem-row">
+            <span>${it.codigo} · ${it.producto||''}</span>
+            <span>${it.cantidad} ${it.und||''}</span>
+          </div>`).join('')}
+      </div>
+      ${r.observacion?`<div style="font-size:10px;color:var(--muted);margin-top:5px;padding-top:5px;border-top:1px solid var(--border)">${r.observacion}</div>`:''}
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRÉSTAMOS
+// ═══════════════════════════════════════════════════════════════
+function renderPrestamos(prods) {
+  const subs = ['activos','nuevo','historial'];
+  if (!subs.includes(state.sub)) state.sub = 'activos';
+  const loans = objArr(state.loans);
+  const activos = loans.filter(l=>!l.devuelto);
+  const hist = loans.filter(l=>l.devuelto);
+  return `
+    <div class="stabs">
+      <button class="stab ${state.sub==='activos'?'on':''}" onclick="state.sub='activos';render()">🔧 Activos (${activos.length})</button>
+      <button class="stab ${state.sub==='nuevo'?'on':''}" onclick="state.sub='nuevo';render()">➕ Nuevo</button>
+      <button class="stab ${state.sub==='historial'?'on':''}" onclick="state.sub='historial';render()">📋 Historial</button>
+    </div>
+    ${state.sub==='nuevo'?prestamoFormHtml():state.sub==='historial'?
+      (hist.length===0?`<div class="empty"><div class="ico">✅</div><div class="msg">Sin devoluciones</div></div>`:hist.map(l=>loanHtml(l)).join(''))
+      :(activos.length===0?`<div class="empty"><div class="ico">✅</div><div class="msg">Sin préstamos activos</div></div>`:activos.map(l=>loanHtml(l)).join(''))}`;
+}
+
+function loanHtml(l) {
+  return `<div class="card" style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <div style="font-size:14px;font-weight:700">${l.equipo}</div>
+        <div style="font-size:10px;color:var(--muted)">${l.codigoInterno?l.codigoInterno+' · ':''}</div>
+      </div>
+      <span class="badge ${l.devuelto?'b-ok':'b-warn'}">${l.devuelto?'Devuelto':'Activo'}</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">👤 ${l.nombre} · ${l.empresa||'—'} · ${l.cargo||'—'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:3px">📅 Salida: ${fmtDate(l.fechaSalida)}${l.fechaDevolucion?' · Devuelto: '+fmtDate(l.fechaDevolucion):''}</div>
+    ${l.observacion?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${l.observacion}</div>`:''}
+    ${!l.devuelto?`<button class="btn btn-secondary" style="margin-top:8px;font-size:12px" onclick="devolverPrestamo('${l.id}')">↩️ Registrar Devolución</button>`:''}
+  </div>`;
+}
+
+function prestamoFormHtml() {
+  return `<div class="card">
+    <div class="card-hdr"><span class="dot"></span>F-ALM-01 · Préstamo Herramientas/Equipos</div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Nombre y Apellido</label><input class="fi" id="f_nom_pr" placeholder="Nombre completo"></div>
+      <div class="fg"><label class="fl">N° Documento</label><input class="fi" id="f_doc_pr" placeholder="CC / NIT"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Empresa</label><input class="fi" id="f_emp_pr" placeholder="Empresa/Contratista"></div>
+      <div class="fg"><label class="fl">Cargo</label><input class="fi" id="f_car_pr" placeholder="Cargo"></div>
+    </div>
+    <div class="fg"><label class="fl">Equipo / Herramienta</label><input class="fi" id="f_eq_pr" placeholder="Descripción del equipo"></div>
+    <div class="fg"><label class="fl">Código Interno (F-ALM-04)</label><input class="fi" id="f_cod_pr" placeholder="Ej: TCP-01, ALI-1, NIV-A..."></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Fecha Préstamo</label><input class="fi" type="date" id="f_fsal_pr" value="${todayISO()}"></div>
+      <div class="fg"><label class="fl">Devolución Esperada</label><input class="fi" type="date" id="f_fdev_pr"></div>
+    </div>
+    <div class="fg"><label class="fl">Observaciones</label><textarea class="fta" id="f_obs_pr" placeholder="Estado del equipo, condiciones de préstamo..."></textarea></div>
+    <button class="btn btn-primary" onclick="registrarPrestamo()">🔧 Registrar Préstamo</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPRAS
+// ═══════════════════════════════════════════════════════════════
+function renderCompras(prods) {
+  const subs = ['alertas','nueva','historial'];
+  if (!subs.includes(state.sub)) state.sub = 'alertas';
+  const critical = prods.filter(p=>p.status!=='OK');
+  const orders = objArr(state.orders).reverse();
+  return `
+    <div class="stabs">
+      <button class="stab ${state.sub==='alertas'?'on':''}" onclick="state.sub='alertas';render()">⚠️ Críticos (${critical.length})</button>
+      <button class="stab ${state.sub==='nueva'?'on':''}" onclick="state.sub='nueva';render()">➕ Solicitud</button>
+      <button class="stab ${state.sub==='historial'?'on':''}" onclick="state.sub='historial';render()">📋 Historial</button>
+    </div>
+    ${state.sub==='nueva'?compraFormHtml(prods):state.sub==='historial'?compraListHtml(orders):compraAlertasHtml(critical,prods)}`;
+}
+
+function compraAlertasHtml(critical, prods) {
+  if (critical.length===0) return `<div class="empty"><div class="ico">✅</div><div class="msg">Todo el inventario en niveles seguros</div></div>`;
+  return `<div class="card">
+    <div class="card-hdr"><span class="dot" style="background:var(--danger)"></span>Requieren reposición</div>
+    ${critical.map(p=>prodItemHtml(p)).join('')}
+    <button class="btn btn-primary" style="margin-top:8px" onclick="state.sub='nueva';render()">🛒 Generar Solicitud de Compra</button>
+  </div>`;
+}
+
+function compraFormHtml(prods) {
+  const nn = nextNum(state.orders,'SC-');
+  return `<div class="card">
+    <div class="card-hdr"><span class="dot"></span>F-ALM-06 · Solicitud de Compras</div>
+    <div class="fr">
+      <div class="fg"><label class="fl">N° Solicitud</label><input class="fi" id="f_nsc" value="${nn}" readonly></div>
+      <div class="fg"><label class="fl">Fecha</label><input class="fi" type="date" id="f_fecha_sc" value="${todayISO()}"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Solicitado por</label><input class="fi" id="f_sol_sc" placeholder="Nombre"></div>
+      <div class="fg"><label class="fl">Cargo</label><input class="fi" id="f_car_sc" placeholder="Cargo"></div>
+    </div>
+    <div class="fg"><label class="fl">Obra / Proyecto</label><input class="fi" id="f_obra_sc" placeholder="Nombre del proyecto"></div>
+    <div class="fg"><label class="fl">Centro de Costos</label>
+      <select class="fs" id="f_ccos_sc">
+        <option>Etapa 1 - Estructura</option><option>Etapa 2 - Mampostería</option>
+        <option>Etapa 3 - Pisos</option><option>Etapa 4 - Acabados</option><option>General</option>
+      </select>
+    </div>
+    <div class="card-hdr" style="margin-top:8px"><span class="dot"></span>Ítems a Comprar</div>
+    <div id="sc-items-wrap">
+      <div class="rem-line" id="sci-0">${scItemHtml(0,prods)}</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" style="margin-bottom:10px" onclick="addScItem()">➕ Agregar ítem</button>
+    <button class="btn btn-primary" onclick="registrarCompra()">📝 Generar Solicitud</button>
+  </div>`;
+}
+
+function scItemHtml(idx, prods) {
+  return `<div style="flex:1">
+    <input class="fi ri-cod" id="sci_cod_${idx}" type="text" placeholder="Código producto"
+      style="font-size:12px;padding:7px 8px;margin-bottom:4px"
+      onblur="autoFillScItem(${idx})">
+    <div id="sci_prev_${idx}" style="font-size:10px;color:var(--muted)"></div>
+  </div>
+  <input class="fi" id="sci_cant_${idx}" type="number" placeholder="Cant." style="width:70px;font-size:12px;padding:7px 8px">
+  <button class="rem-line-x" onclick="removeScItem(${idx})">✕</button>`;
+}
+
+let scItemCount = 1;
+function addScItem() {
+  const wrap = document.getElementById('sc-items-wrap');
+  if (!wrap) return;
+  const d = document.createElement('div');
+  d.className='rem-line'; d.id='sci-'+scItemCount;
+  d.innerHTML = scItemHtml(scItemCount, BASE_CATALOG);
+  wrap.appendChild(d);
+  scItemCount++;
+}
+function removeScItem(idx) { const e=document.getElementById('sci-'+idx); if(e) e.remove(); }
+function autoFillScItem(idx) {
+  const codEl = document.getElementById('sci_cod_'+idx);
+  if (!codEl) return;
+  const prod = findProduct(codEl.value);
+  const prev = document.getElementById('sci_prev_'+idx);
+  if (prod && prev) { prev.textContent = prod.producto + ' · Exist: '+getStock(prod.codigo)+' '+prod.und; codEl.value = prod.codigo; }
+}
+
+function compraListHtml(orders) {
+  if (orders.length===0) return `<div class="empty"><div class="ico">🛒</div><div class="msg">Sin solicitudes</div></div>`;
+  return orders.map(o=>`<div class="card" style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <div><div style="font-family:'Barlow Condensed';font-size:20px;font-weight:800">${o.numero}</div><div style="font-size:11px;color:var(--muted)">${fmtDate(o.fecha)} · ${o.solicitante||'—'}</div></div>
+      <span class="badge b-ok">Generada</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">${o.obra||'—'} · ${o.ccos||'—'}</div>
+    ${(o.items||[]).map(it=>`<div style="font-size:11px;margin-top:3px">• ${it.codigo} ${it.producto?'·'+it.producto:''} — ${it.cantidad} ${it.und||''}</div>`).join('')}
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT DETAIL MODAL
+// ═══════════════════════════════════════════════════════════════
+function openProdDetail(codigo) {
+  const p = BASE_CATALOG.find(x=>x.codigo===codigo);
+  if (!p) return;
+  const ex = getStock(p.codigo);
+  const st = getStatus(p);
+  const sc = st==='OK'?'b-ok':st==='Agotado'?'b-danger':'b-warn';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="modal-title" style="max-width:78%;font-size:18px">${p.producto}</div>
+      <span class="badge ${sc}" style="flex-shrink:0">${st}</span>
+    </div>
+    <div class="modal-sub">Código: ${p.codigo} · ${p.categoria}</div>
+    <div class="dg">
+      <div class="di"><div class="di-l">Existencia actual</div>
+        <div class="di-v" style="font-family:'Barlow Condensed';font-size:28px;color:${ex<=0?'var(--danger)':ex<p.stock_min?'var(--warn)':'var(--ok)'}">${ex} ${p.und}</div>
+      </div>
+      <div class="di"><div class="di-l">Stock mínimo</div><div class="di-v">${p.stock_min} ${p.und}</div></div>
+      <div class="di"><div class="di-l">Ubicación</div><div class="di-v">${p.ubicacion||'—'}</div></div>
+      <div class="di"><div class="di-l">Precio/Unidad</div><div class="di-v">${fmtMoney(p.precio)}</div></div>
+    </div>
+    ${p.precio&&ex>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;margin-bottom:12px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:3px">VALOR EN EXISTENCIA</div>
+      <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:800;color:var(--accent)">${fmtMoney(ex*p.precio)}</div>
+    </div>`:''}
+    <div class="btn-grid">
+      <button class="btn btn-primary" onclick="closeOverlayNow();openEntradaFormFor(${p.codigo})">📥 Entrada</button>
+      <button class="btn btn-secondary" onclick="closeOverlayNow();openSalidaFormFor(${p.codigo})">📤 Despacho</button>
+      ${st!=='OK'?`<button class="btn btn-info" style="grid-column:span 2" onclick="closeOverlayNow();state.tab='compras';state.sub='nueva';render()">🛒 Solicitar Compra</button>`:''}
+      <button class="btn btn-secondary" style="grid-column:span 2" onclick="closeOverlayNow()">✕ Cerrar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeOverlay(e) { if(e.target===document.getElementById('overlay')) closeOverlayNow(); }
+function closeOverlayNow() { document.getElementById('overlay').classList.remove('open'); }
+
+function openEntradaForm() { state.tab='movimientos'; state.sub='entrada'; render(); }
+function openSalidaForm()  { state.tab='movimientos'; state.sub='salida';  render(); }
+function openRemisionForm(){ state.tab='remisiones';  state.sub='nueva';   render(); }
+function openPrestamoForm(){ state.tab='prestamos';   state.sub='nuevo';   render(); }
+function openEntradaFormFor(c){ openEntradaForm(); setTimeout(()=>{ const el=document.getElementById('f_cod_ent'); if(el){el.value=c;previewProduct('f_cod_ent');} }, 100); }
+function openSalidaFormFor(c) { openSalidaForm();  setTimeout(()=>{ const el=document.getElementById('f_cod_sal'); if(el){el.value=c;previewProduct('f_cod_sal');} }, 100); }
+
+// ═══════════════════════════════════════════════════════════════
+// REGISTRO ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function updateStock(codigo, delta) {
+  const actual = getStock(codigo);
+  const nuevo = Math.round((actual + delta) * 100) / 100;
+  state.stockOverrides[codigo] = nuevo;
+  dbSet('stock', state.stockOverrides);
+}
+
+function registrarEntrada() {
+  const codigo = parseInt(document.getElementById('f_cod_ent').value);
+  const cant = parseFloat(document.getElementById('f_cant_ent').value||0);
+  if (!codigo||isNaN(codigo)||!CATALOG[codigo]) { toast('⚠️ Código de producto inválido',true); return; }
+  if (cant<=0) { toast('⚠️ Ingresa una cantidad válida',true); return; }
+  const p = CATALOG[codigo];
+  const id = 'mov_'+ts();
+  const mov = {
+    id, tipo:'ENTRADA', codigo, producto:p.producto, und:p.und, cantidad:cant,
+    fecha: document.getElementById('f_fecha_ent').value,
+    remision: document.getElementById('f_rem_ent').value,
+    proveedor: document.getElementById('f_prov_ent').value,
+    responsable: document.getElementById('f_resp_ent').value,
+    descripcion: document.getElementById('f_obs_ent').value,
+    ts: ts()
+  };
+  state.movements[id] = mov;
+  dbSet('moves', state.movements);
+  updateStock(codigo, cant);
+  toast(`✅ Entrada registrada: +${cant} ${p.und} · ${p.producto}`);
+  state.sub='historial'; render();
+}
+
+function registrarSalida() {
+  const codigo = parseInt(document.getElementById('f_cod_sal').value);
+  const cant = parseFloat(document.getElementById('f_cant_sal').value||0);
+  if (!codigo||isNaN(codigo)||!CATALOG[codigo]) { toast('⚠️ Código de producto inválido',true); return; }
+  if (cant<=0) { toast('⚠️ Ingresa una cantidad válida',true); return; }
+  const actual = getStock(codigo);
+  if (cant > actual) { toast(`⛔ Stock insuficiente. Existencia: ${actual}`,true); return; }
+  const p = CATALOG[codigo];
+  const id = 'mov_'+ts();
+  const mov = {
+    id, tipo:'SALIDA', codigo, producto:p.producto, und:p.und, cantidad:cant,
+    fecha: document.getElementById('f_fecha_sal').value,
+    remision: document.getElementById('f_nsol_sal').value,
+    responsable: document.getElementById('f_resp_sal').value,
+    autorizado: document.getElementById('f_auth_sal').value,
+    descripcion: document.getElementById('f_dest_sal').value,
+    ts: ts()
+  };
+  state.movements[id] = mov;
+  dbSet('moves', state.movements);
+  updateStock(codigo, -cant);
+  toast(`✅ Despacho registrado: -${cant} ${p.und} · ${p.producto}`);
+  state.sub='historial'; render();
+}
+
+function registrarRemision() {
+  const elaboradoPor = document.getElementById('f_elab_rem').value;
+  if (!elaboradoPor) { toast('⚠️ Ingresa quien elabora',true); return; }
+  const items = [];
+  document.querySelectorAll('.rem-line').forEach(el => {
+    const codEl = el.querySelector('.ri-cod');
+    const cantEl = el.querySelector('.ri-cant');
+    if (!codEl || !cantEl) return;
+    const codigo = parseInt(codEl.value);
+    const cant = parseFloat(cantEl.value||0);
+    if (codigo && cant > 0 && CATALOG[codigo]) {
+      const p = CATALOG[codigo];
+      items.push({codigo, producto:p.producto, und:p.und, cantidad:cant});
+      // Descontar stock
+      updateStock(codigo, -cant);
+      // Registrar movimiento
+      const id='mov_'+ts()+'_'+codigo;
+      state.movements[id] = {id, tipo:'SALIDA', codigo, producto:p.producto, und:p.und, cantidad:cant,
+        fecha:document.getElementById('f_fecha_rem').value,
+        remision:document.getElementById('f_nrem').value,
+        responsable:elaboradoPor, descripcion:'Remisión '+document.getElementById('f_nrem').value, ts:ts()};
+    }
+  });
+  if (items.length===0) { toast('⚠️ Agrega al menos un ítem válido',true); return; }
+  const id = 'rem_'+ts();
+  state.remisiones[id] = {
+    id, numero: document.getElementById('f_nrem').value,
+    fecha: document.getElementById('f_fecha_rem').value,
+    elaboradoPor, cargo: document.getElementById('f_cargo_rem').value,
+    obra: document.getElementById('f_obra_rem').value,
+    para: document.getElementById('f_para_rem').value,
+    empresa: document.getElementById('f_emp_rem').value,
+    tipo: document.getElementById('f_tipo_rem').value,
+    items, observacion: document.getElementById('f_obs_rem').value,
+    firma: document.getElementById('f_firma_rem').value,
+    ts: ts()
+  };
+  dbSet('rem', state.remisiones);
+  dbSet('moves', state.movements);
+  remItemCount = 1; scItemCount = 1;
+  toast('📋 Remisión generada: ' + document.getElementById('f_nrem').value);
+  state.sub='lista'; render();
+}
+
+function registrarPrestamo() {
+  const nombre = document.getElementById('f_nom_pr').value;
+  const equipo = document.getElementById('f_eq_pr').value;
+  if (!nombre||!equipo) { toast('⚠️ Completa nombre y equipo',true); return; }
+  const id='loan_'+ts();
+  state.loans[id] = {
+    id, nombre, equipo,
+    doc: document.getElementById('f_doc_pr').value,
+    empresa: document.getElementById('f_emp_pr').value,
+    cargo: document.getElementById('f_car_pr').value,
+    codigoInterno: document.getElementById('f_cod_pr').value,
+    fechaSalida: document.getElementById('f_fsal_pr').value,
+    fechaDevolucionEsp: document.getElementById('f_fdev_pr').value,
+    observacion: document.getElementById('f_obs_pr').value,
+    devuelto: false, fechaDevolucion: null, ts: ts()
+  };
+  dbSet('loans', state.loans);
+  toast('🔧 Préstamo registrado');
+  state.sub='activos'; render();
+}
+
+function devolverPrestamo(id) {
+  if (state.loans[id]) { state.loans[id].devuelto=true; state.loans[id].fechaDevolucion=todayISO(); }
+  dbSet('loans', state.loans);
+  toast('↩️ Devolución registrada');
+  render();
+}
+
+function registrarCompra() {
+  const sol = document.getElementById('f_sol_sc').value;
+  if (!sol) { toast('⚠️ Ingresa quien solicita',true); return; }
+  const items = [];
+  document.querySelectorAll('#sc-items-wrap .rem-line').forEach(el => {
+    const codEl = el.querySelector('.ri-cod');
+    const cantEl = el.querySelector('.fi[id^=sci_cant_]') || el.querySelectorAll('input')[1];
+    if (!codEl||!cantEl) return;
+    const codigo = parseInt(codEl.value);
+    const cant = parseFloat(cantEl.value||0);
+    if (codigo&&cant>0&&CATALOG[codigo]) {
+      const p=CATALOG[codigo];
+      items.push({codigo,producto:p.producto,und:p.und,cantidad:cant});
+    }
+  });
+  if (items.length===0) { toast('⚠️ Agrega al menos un ítem',true); return; }
+  const id='ord_'+ts();
+  state.orders[id] = {
+    id, numero: document.getElementById('f_nsc').value,
+    fecha: document.getElementById('f_fecha_sc').value,
+    solicitante:sol, cargo: document.getElementById('f_car_sc').value,
+    obra: document.getElementById('f_obra_sc').value,
+    ccos: document.getElementById('f_ccos_sc').value,
+    items, ts:ts()
+  };
+  dbSet('orders', state.orders);
+  scItemCount=1;
+  toast('🛒 Solicitud generada');
+  state.sub='historial'; render();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REPORTES — Módulo de exportación a Excel
+// ═══════════════════════════════════════════════════════════════
+function renderReportes() {
+  const moves   = objArr(state.movements);
+  const rems    = objArr(state.remisiones);
+  const loans   = objArr(state.loans);
+  const orders  = objArr(state.orders);
+  const prods   = getProducts();
+
+  const entradas = moves.filter(m=>m.tipo==='ENTRADA').length;
+  const salidas  = moves.filter(m=>m.tipo==='SALIDA').length;
+  const agotados = prods.filter(p=>p.status==='Agotado').length;
+  const bajos    = prods.filter(p=>p.status==='Menor al mínimo').length;
+
+  return `
+    <div class="card">
+      <div class="card-hdr"><span class="dot"></span>Resumen de Datos</div>
+      <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+        <div class="stat"><div class="stat-n" style="color:var(--ok)">${entradas}</div><div class="stat-l">Entradas</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--accent2)">${salidas}</div><div class="stat-l">Salidas</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--info)">${rems.length}</div><div class="stat-l">Remisiones</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--danger)">${agotados+bajos}</div><div class="stat-l">Alertas stock</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><span class="dot" style="background:var(--ok)"></span>📥 Exportar a Excel</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Cada reporte se descarga como un archivo <strong style="color:var(--text)">.xlsx</strong> que puedes abrir en Excel o Google Sheets.</p>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+
+        <div style="background:var(--surface2);border-radius:9px;padding:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700">📦 Inventario Actual</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">${prods.length} productos · stock, precios y alertas</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="exportInventario()">Descargar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">Hojas: <strong style="color:var(--text)">Inventario completo, Agotados, Bajo mínimo</strong></div>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:9px;padding:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700">🔄 Registro de Movimientos</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">${moves.length} registros · entradas y salidas</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="exportMovimientos()">Descargar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">Hojas: <strong style="color:var(--text)">Todos los movimientos, Solo entradas, Solo salidas</strong></div>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:9px;padding:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700">📋 Remisiones</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">${rems.length} remisiones generadas</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="exportRemisiones()">Descargar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">Hojas: <strong style="color:var(--text)">Encabezados, Detalle de ítems</strong></div>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:9px;padding:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700">🔧 Préstamos de Equipos</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">${loans.length} registros · activos e historial</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="exportPrestamos()">Descargar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">Hojas: <strong style="color:var(--text)">Todos, Activos, Devueltos</strong></div>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:9px;padding:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700">🛒 Solicitudes de Compra</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">${orders.length} solicitudes</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="exportCompras()">Descargar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">Hojas: <strong style="color:var(--text)">Solicitudes, Detalle de ítems</strong></div>
+        </div>
+
+        <div style="background:linear-gradient(135deg,var(--surface2),var(--surface3));border-radius:9px;padding:12px;border:1px solid var(--accent)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--accent)">⭐ Reporte Completo</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">Todo en un solo archivo</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="exportCompleto()">Descargar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">Incluye todas las hojas: Inventario + Movimientos + Remisiones + Préstamos + Compras</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><span class="dot" style="background:var(--info)"></span>Filtrar por Fechas</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Desde</label><input class="fi" type="date" id="exp_desde"></div>
+        <div class="fg"><label class="fl">Hasta</label><input class="fi" type="date" id="exp_hasta" value="${todayISO()}"></div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Si dejas las fechas vacías se exportan todos los registros.</p>
+      <button class="btn btn-info" onclick="exportCompletoFiltrado()">📥 Exportar rango de fechas</button>
+    </div>`;
+}
+
+// ── Helpers de estilo para celdas ──
+function xlsxWb() { return XLSX.utils.book_new(); }
+
+function styledSheet(data, cols) {
+  const ws = XLSX.utils.aoa_to_sheet([cols, ...data]);
+  // Ancho de columnas automático
+  const widths = cols.map((c,i) => {
+    const maxData = data.reduce((m,r) => Math.max(m, String(r[i]||'').length), 0);
+    return { wch: Math.max(c.length, maxData, 8) + 2 };
+  });
+  ws['!cols'] = widths;
+  return ws;
+}
+
+function xlsxDownload(wb, name) {
+  const fecha = todayISO().replace(/-/g,'');
+  XLSX.writeFile(wb, `TCP_${name}_${fecha}.xlsx`);
+  toast(`✅ ${name}.xlsx descargado`);
+}
+
+function filterByDates(arr, desde, hasta) {
+  if (!desde && !hasta) return arr;
+  return arr.filter(r => {
+    const f = r.fecha || r.fechaSalida || '';
+    if (desde && f < desde) return false;
+    if (hasta && f > hasta) return false;
+    return true;
+  });
+}
+
+// ── 1. INVENTARIO ──
+function exportInventario() {
+  const prods = getProducts();
+  const wb = xlsxWb();
+
+  const cols = ['CÓDIGO','PRODUCTO','CATEGORÍA','UBICACIÓN','UNIDAD','EXISTENCIA ACTUAL','STOCK MÍNIMO','PRECIO/UND','VALOR EXISTENCIA','ESTADO'];
+  const toRow = p => [
+    p.codigo, p.producto, p.categoria, p.ubicacion, p.und,
+    p.existencia, p.stock_min,
+    p.precio || 0,
+    p.precio ? Math.round(p.existencia * p.precio) : 0,
+    p.status
+  ];
+
+  XLSX.utils.book_append_sheet(wb, styledSheet(prods.map(toRow), cols), 'Inventario Completo');
+  XLSX.utils.book_append_sheet(wb, styledSheet(prods.filter(p=>p.status==='Agotado').map(toRow), cols), 'Agotados');
+  XLSX.utils.book_append_sheet(wb, styledSheet(prods.filter(p=>p.status==='Menor al mínimo').map(toRow), cols), 'Bajo Minimo');
+
+  xlsxDownload(wb, 'Inventario');
+}
+
+// ── 2. MOVIMIENTOS ──
+function exportMovimientos(desde, hasta) {
+  let moves = objArr(state.movements).sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
+  if (desde||hasta) moves = filterByDates(moves, desde, hasta);
+
+  const wb = xlsxWb();
+  const cols = ['#','TIPO','FECHA','CÓDIGO','PRODUCTO','UNIDAD','CANTIDAD','REMISIÓN/SOLICITUD','RESPONSABLE','PROVEEDOR/AUTORIZADO','DESCRIPCIÓN/DESTINO'];
+  const toRow = (m,i) => [
+    i+1, m.tipo||'', m.fecha||'', m.codigo||'', m.producto||'', m.und||'',
+    m.cantidad||0, m.remision||'', m.responsable||'',
+    m.proveedor||m.autorizado||'', m.descripcion||''
+  ];
+
+  XLSX.utils.book_append_sheet(wb, styledSheet(moves.map(toRow), cols), 'Todos los Movimientos');
+  XLSX.utils.book_append_sheet(wb, styledSheet(moves.filter(m=>m.tipo==='ENTRADA').map(toRow), cols), 'Solo Entradas');
+  XLSX.utils.book_append_sheet(wb, styledSheet(moves.filter(m=>m.tipo==='SALIDA').map(toRow), cols), 'Solo Salidas');
+
+  xlsxDownload(wb, 'Movimientos');
+}
+
+// ── 3. REMISIONES ──
+function exportRemisiones(desde, hasta) {
+  let rems = objArr(state.remisiones).sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
+  if (desde||hasta) rems = filterByDates(rems, desde, hasta);
+
+  const wb = xlsxWb();
+
+  // Hoja 1: encabezados
+  const colsEnc = ['N° REMISIÓN','FECHA','TIPO','ELABORADO POR','CARGO','OBRA/PROYECTO','ENTREGADO A','EMPRESA','OBSERVACIÓN','FIRMA'];
+  const rowsEnc = rems.map(r=>[r.numero||'',r.fecha||'',r.tipo||'',r.elaboradoPor||'',r.cargo||'',r.obra||'',r.para||'',r.empresa||'',r.observacion||'',r.firma||'']);
+  XLSX.utils.book_append_sheet(wb, styledSheet(rowsEnc, colsEnc), 'Remisiones');
+
+  // Hoja 2: detalle de ítems
+  const colsIt = ['N° REMISIÓN','FECHA','CÓDIGO PRODUCTO','PRODUCTO','UNIDAD','CANTIDAD'];
+  const rowsIt = [];
+  rems.forEach(r => (r.items||[]).forEach(it => rowsIt.push([r.numero||'',r.fecha||'',it.codigo||'',it.producto||'',it.und||'',it.cantidad||0])));
+  XLSX.utils.book_append_sheet(wb, styledSheet(rowsIt, colsIt), 'Detalle Items');
+
+  xlsxDownload(wb, 'Remisiones');
+}
+
+// ── 4. PRÉSTAMOS ──
+function exportPrestamos(desde, hasta) {
+  let loans = objArr(state.loans).sort((a,b)=>(a.fechaSalida||'')>(b.fechaSalida||'')?1:-1);
+  if (desde||hasta) loans = filterByDates(loans, desde, hasta);
+
+  const wb = xlsxWb();
+  const cols = ['NOMBRE','N° DOCUMENTO','EMPRESA','CARGO','EQUIPO/HERRAMIENTA','CÓDIGO INTERNO','FECHA SALIDA','FECHA DEV. ESPERADA','FECHA DEVOLUCIÓN REAL','ESTADO','OBSERVACIÓN'];
+  const toRow = l => [
+    l.nombre||'',l.doc||'',l.empresa||'',l.cargo||'',l.equipo||'',l.codigoInterno||'',
+    l.fechaSalida||'',l.fechaDevolucionEsp||'',l.fechaDevolucion||'',
+    l.devuelto?'Devuelto':'Activo', l.observacion||''
+  ];
+
+  XLSX.utils.book_append_sheet(wb, styledSheet(loans.map(toRow), cols), 'Todos los Prestamos');
+  XLSX.utils.book_append_sheet(wb, styledSheet(loans.filter(l=>!l.devuelto).map(toRow), cols), 'Activos');
+  XLSX.utils.book_append_sheet(wb, styledSheet(loans.filter(l=>l.devuelto).map(toRow), cols), 'Devueltos');
+
+  xlsxDownload(wb, 'Prestamos');
+}
+
+// ── 5. SOLICITUDES DE COMPRA ──
+function exportCompras(desde, hasta) {
+  let orders = objArr(state.orders).sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
+  if (desde||hasta) orders = filterByDates(orders, desde, hasta);
+
+  const wb = xlsxWb();
+
+  const colsOrd = ['N° SOLICITUD','FECHA','SOLICITADO POR','CARGO','OBRA/PROYECTO','CENTRO DE COSTOS'];
+  const rowsOrd = orders.map(o=>[o.numero||'',o.fecha||'',o.solicitante||'',o.cargo||'',o.obra||'',o.ccos||'']);
+  XLSX.utils.book_append_sheet(wb, styledSheet(rowsOrd, colsOrd), 'Solicitudes');
+
+  const colsIt = ['N° SOLICITUD','FECHA','CÓDIGO PRODUCTO','PRODUCTO','UNIDAD','CANTIDAD'];
+  const rowsIt = [];
+  orders.forEach(o=>(o.items||[]).forEach(it=>rowsIt.push([o.numero||'',o.fecha||'',it.codigo||'',it.producto||'',it.und||'',it.cantidad||0])));
+  XLSX.utils.book_append_sheet(wb, styledSheet(rowsIt, colsIt), 'Detalle Items');
+
+  xlsxDownload(wb, 'SolicitudesCompra');
+}
+
+// ── 6. REPORTE COMPLETO ──
+function exportCompleto() {
+  const prods = getProducts();
+  const moves = objArr(state.movements).sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
+  const rems  = objArr(state.remisiones).sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
+  const loans = objArr(state.loans);
+  const orders= objArr(state.orders);
+
+  const wb = xlsxWb();
+
+  // Inventario
+  const colsInv = ['CÓDIGO','PRODUCTO','CATEGORÍA','UBICACIÓN','UNIDAD','EXISTENCIA','STOCK MÍN','PRECIO','VALOR','ESTADO'];
+  XLSX.utils.book_append_sheet(wb, styledSheet(prods.map(p=>[p.codigo,p.producto,p.categoria,p.ubicacion,p.und,p.existencia,p.stock_min,p.precio||0,p.precio?Math.round(p.existencia*p.precio):0,p.status]), colsInv), 'Inventario');
+
+  // Movimientos
+  const colsMov = ['TIPO','FECHA','CÓDIGO','PRODUCTO','UND','CANTIDAD','REMISIÓN','RESPONSABLE','DESTINO'];
+  XLSX.utils.book_append_sheet(wb, styledSheet(moves.map(m=>[m.tipo||'',m.fecha||'',m.codigo||'',m.producto||'',m.und||'',m.cantidad||0,m.remision||'',m.responsable||'',m.descripcion||'']), colsMov), 'Movimientos');
+
+  // Remisiones
+  const colsRem = ['N° REMISIÓN','FECHA','TIPO','ELABORADO POR','OBRA','ENTREGADO A','EMPRESA'];
+  XLSX.utils.book_append_sheet(wb, styledSheet(rems.map(r=>[r.numero||'',r.fecha||'',r.tipo||'',r.elaboradoPor||'',r.obra||'',r.para||'',r.empresa||'']), colsRem), 'Remisiones');
+
+  // Detalle remisiones
+  const colsRIt = ['N° REMISIÓN','CÓDIGO','PRODUCTO','UND','CANTIDAD'];
+  const rowsRIt = [];
+  rems.forEach(r=>(r.items||[]).forEach(it=>rowsRIt.push([r.numero||'',it.codigo||'',it.producto||'',it.und||'',it.cantidad||0])));
+  XLSX.utils.book_append_sheet(wb, styledSheet(rowsRIt, colsRIt), 'Detalle Remisiones');
+
+  // Préstamos
+  const colsLoan = ['NOMBRE','EMPRESA','EQUIPO','COD INTERNO','FECHA SALIDA','ESTADO'];
+  XLSX.utils.book_append_sheet(wb, styledSheet(loans.map(l=>[l.nombre||'',l.empresa||'',l.equipo||'',l.codigoInterno||'',l.fechaSalida||'',l.devuelto?'Devuelto':'Activo']), colsLoan), 'Prestamos');
+
+  // Solicitudes compra
+  const colsOrd = ['N° SOLICITUD','FECHA','SOLICITANTE','OBRA','CÓDIGO','PRODUCTO','CANTIDAD'];
+  const rowsOrd = [];
+  orders.forEach(o=>(o.items||[]).forEach(it=>rowsOrd.push([o.numero||'',o.fecha||'',o.solicitante||'',o.obra||'',it.codigo||'',it.producto||'',it.cantidad||0])));
+  XLSX.utils.book_append_sheet(wb, styledSheet(rowsOrd, colsOrd), 'Solicitudes Compra');
+
+  xlsxDownload(wb, 'ReporteCompleto');
+}
+
+// ── 7. REPORTE FILTRADO POR FECHAS ──
+function exportCompletoFiltrado() {
+  const desde = (document.getElementById('exp_desde')||{}).value || '';
+  const hasta = (document.getElementById('exp_hasta')||{}).value || '';
+  exportMovimientos(desde, hasta);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err?' err':'');
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════════════
+loadLocal();
+initFirebase();
+</script>
+</body>
+</html>
