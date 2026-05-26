@@ -496,10 +496,10 @@ function codeSearchHtml(id, label='Código Interno del Producto') {
     <div class="fg">
       <label class="fl">${label}</label>
       <div class="code-search">
-        <input class="fi" type="text" id="${id}" placeholder="Ej: 1001, 1079..." 
-          oninput="previewProduct('${id}')"
-          onkeydown="if(event.key==='Enter'){previewProduct('${id}');event.preventDefault()}">
-        <button class="code-search-btn" onclick="previewProduct('${id}')">Buscar</button>
+        <input class="fi" type="number" id="${id}" placeholder="Ej: 1001, 1079..."
+          onkeydown="if(event.key==='Enter'){buscarProducto('${id}');event.preventDefault()}"
+          style="padding-right:85px">
+        <button class="code-search-btn" onclick="buscarProducto('${id}')">🔍 Buscar</button>
       </div>
       <div class="product-preview" id="pp_${id}">
         <div class="pp-name" id="pp_name_${id}"></div>
@@ -508,7 +508,7 @@ function codeSearchHtml(id, label='Código Interno del Producto') {
     </div>`;
 }
 
-function previewProduct(inputId) {
+function buscarProducto(inputId) {
   const val = document.getElementById(inputId).value;
   const prod = findProduct(val);
   const pp = document.getElementById('pp_'+inputId);
@@ -521,8 +521,6 @@ function previewProduct(inputId) {
     pname.textContent = prod.producto;
     pmeta.innerHTML = `<span>${prod.codigo}</span><span>${prod.categoria}</span><span class="chip">${prod.ubicacion}</span><span class="badge ${sc}">${ex} ${prod.und}</span>`;
     pp.classList.add('show');
-    // Fill codigo field if user typed a name
-    document.getElementById(inputId).value = prod.codigo;
   } else {
     pp.classList.remove('show');
     if (val) toast('⚠️ Código no encontrado', true);
@@ -621,9 +619,9 @@ function remisionFormHtml(prods) {
 function codeSearchInlineHtml(idx) {
   return `
     <div style="flex:1">
-      <input class="fi ri-cod" id="ri_cod_${idx}" type="text" placeholder="Código producto" 
-        style="font-size:12px;padding:7px 8px;margin-bottom:4px"
-        onblur="autoFillRemItem(${idx})">
+      <input class="fi ri-cod" id="ri_cod_${idx}" type="number" placeholder="Ej: 1001"
+        style="font-size:12px;padding:7px 8px;margin-bottom:4px">
+      <button onclick="autoFillRemItem(${idx})" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px">Buscar</button>
       <div class="ri-preview" id="ri_prev_${idx}" style="font-size:10px;color:var(--muted)"></div>
     </div>
     <input class="fi ri-cant" id="ri_cant_${idx}" type="number" placeholder="Cant." style="width:70px;font-size:12px;padding:7px 8px">
@@ -799,9 +797,9 @@ function compraFormHtml(prods) {
 
 function scItemHtml(idx, prods) {
   return `<div style="flex:1">
-    <input class="fi ri-cod" id="sci_cod_${idx}" type="text" placeholder="Código producto"
-      style="font-size:12px;padding:7px 8px;margin-bottom:4px"
-      onblur="autoFillScItem(${idx})">
+    <input class="fi ri-cod" id="sci_cod_${idx}" type="number" placeholder="Ej: 1001"
+      style="font-size:12px;padding:7px 8px;margin-bottom:4px">
+    <button onclick="autoFillScItem(${idx})" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px">Buscar</button>
     <div id="sci_prev_${idx}" style="font-size:10px;color:var(--muted)"></div>
   </div>
   <input class="fi" id="sci_cant_${idx}" type="number" placeholder="Cant." style="width:70px;font-size:12px;padding:7px 8px">
@@ -883,8 +881,8 @@ function openEntradaForm() { state.tab='movimientos'; state.sub='entrada'; rende
 function openSalidaForm()  { state.tab='movimientos'; state.sub='salida';  render(); }
 function openRemisionForm(){ state.tab='remisiones';  state.sub='nueva';   render(); }
 function openPrestamoForm(){ state.tab='prestamos';   state.sub='nuevo';   render(); }
-function openEntradaFormFor(c){ openEntradaForm(); setTimeout(()=>{ const el=document.getElementById('f_cod_ent'); if(el){el.value=c;previewProduct('f_cod_ent');} }, 100); }
-function openSalidaFormFor(c) { openSalidaForm();  setTimeout(()=>{ const el=document.getElementById('f_cod_sal'); if(el){el.value=c;previewProduct('f_cod_sal');} }, 100); }
+function openEntradaFormFor(c){ openEntradaForm(); setTimeout(()=>{ const el=document.getElementById('f_cod_ent'); if(el){el.value=c;buscarProducto('f_cod_ent');} }, 100); }
+function openSalidaFormFor(c) { openSalidaForm();  setTimeout(()=>{ const el=document.getElementById('f_cod_sal'); if(el){el.value=c;buscarProducto('f_cod_sal');} }, 100); }
 
 // ═══════════════════════════════════════════════════════════════
 // REGISTRO ACTIONS
